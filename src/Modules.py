@@ -90,6 +90,7 @@ TOOLKIT_Visualisation = {
 
 TOOLKIT_DataExchange = {
             'TKSTL': ['StlMesh', 'StlAPI', 'StlTransfer', 'RWStl'],
+            'TKWFOBJ': ['WfObjMesh', 'WfObjAPI', 'WfObjTransfer', 'RWWfObj'],
             'TKSTEP': ['StepAP214', 'RWStepAP214', 'StepAP203', 'RWStepAP203',
                        'STEPConstruct', 'STEPEdit', 'GeomToStep', 'StepToGeom',
                        'StepToTopoDS', 'TopoDSToStep', 'STEPControl',
@@ -601,6 +602,13 @@ OCE_MODULES = [
            ('StlAPI', [], []),
            ('StlTransfer', [], []),
            ('RWStl', [], []),
+
+           # WfObj
+           ('WfObjMesh', [], []),
+           ('WfObjAPI', [], []),
+           ('WfObjTransfer', [], []),
+           ('RWWfObj', [], []),
+
            ### TKSTEPBase
            ('StepBasic', ['MoniTool','TCollection','Handle_Interface','StepBasic',
                           'Message'], []),
