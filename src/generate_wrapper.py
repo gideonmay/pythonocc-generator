@@ -37,7 +37,7 @@ all_toolkits = [TOOLKIT_Foundation,
                 TOOLKIT_Visualisation,
                 TOOLKIT_DataExchange,
                 TOOLKIT_OCAF,
-                #TOOLKIT_SMesh,
+                TOOLKIT_SMesh,
                 TOOLKIT_VTK]
 TOOLKITS = {}
 for tk in all_toolkits:
@@ -152,6 +152,7 @@ HXX_TO_EXCLUDE = ['TCollection_AVLNode.hxx',
                   'SMESH_0D_Algo.hxx', 'SMESH_1D_Algo.hxx',
                   'SMESH_2D_Algo.hxx',
                   'SMESH_3D_Algo.hxx',
+                  'SMESH_DataMapOfElemPtrSequenceOfElemPtr.hxx',
                   'IntTools_CurveRangeSampleMapHasher.hxx',
                   'Interface_ValueInterpret.hxx',
                   'StepToTopoDS_DataMapOfRI.hxx',
