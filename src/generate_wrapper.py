@@ -93,7 +93,7 @@ if not os.path.isdir(SWIG_OUTPUT_PATH):
 # the following var is set when the module
 # is created
 CURRENT_MODULE = None
-CURRENT_HEADER_CONTENT = None
+classes_with_handle = []
 PYTHON_MODULE_DEPENDENCY = []
 HEADER_DEPENDENCY = []
 
@@ -366,7 +366,7 @@ def check_has_related_handle(class_name):
     other_possible_filename = filename
     if class_name.startswith("Graphic3d"):
         other_possible_filename = os.path.join(OCE_INCLUDE_DIR, "%s_Handle.hxx" % class_name)
-    return (os.path.exists(filename) or os.path.exists(other_possible_filename) or need_handle())
+    return (os.path.exists(filename) or os.path.exists(other_possible_filename) or need_handle(class_name))
 
 
 def get_license_header():
@@ -388,12 +388,13 @@ def write__init__():
     # @TODO : then check OCE version
 
 
-def need_handle():
+def need_handle(name):
     """ Returns True if the current parsed class needs an
     Handle to be defined. This is useful when headers define
     handles but no header """
     # @TODO what about DEFINE_RTTI ?
-    if 'DEFINE_STANDARD_HANDLE' in CURRENT_HEADER_CONTENT:
+    global classes_with_handle
+    if name in classes_with_handle:
         return True
     else:
         return False
@@ -406,7 +407,7 @@ def adapt_header_file(header_content):
     otherwise CppHeaderParser is confused ;
     * all define RTTI moved
     """
-    global CURRENT_HEADER_CONTENT
+    global classes_with_handle
     outer = re.compile("DEFINE_STANDARD_HANDLE[\s]*\([\w\s]+\,+[\w\s]+\)")
     matches = outer.findall(header_content)
     if matches:
@@ -414,6 +415,7 @@ def adapt_header_file(header_content):
             # @TODO find inheritance name
             header_content = header_content.replace('DEFINE_STANDARD_HANDLE',
                                                     '//DEFINE_STANDARD_HANDLE')
+            classes_with_handle.append(match.split('(')[1].split(',')[0])
     # then we look for Handle(Something) use
     # and replace with Handle_Something
     outer = re.compile("Handle[\s]*\([\w\s]*\)")
@@ -433,7 +435,6 @@ def adapt_header_file(header_content):
     header_content = header_content.replace("SMESHCONTROLS_EXPORT", "")
     header_content = header_content.replace("SMESHDS_EXPORT", "")
     header_content = header_content.replace("STDMESHERS_EXPORT", "")
-    CURRENT_HEADER_CONTENT = header_content
     return header_content
 
 
@@ -472,10 +473,10 @@ def test_filter_typedefs():
 
 
 def process_typedefs(typedefs_dict):
-    """ Take a typedef dictionnary and returns a SWIG definition string
+    """ Take a typedef dictionary and returns a SWIG definition string
     """
     typedef_str = "/* typedefs */\n"
-    # carful, there might be some strange things returned by CppHeaderParser
+    # careful, there might be some strange things returned by CppHeaderParser
     # they should not be taken into account
     filtered_typedef_dict = filter_typedefs(typedefs_dict)
     for typedef_value in filtered_typedef_dict.keys():
@@ -502,7 +503,7 @@ def process_enums(enums_list):
 
 
 def adapt_param_type(param_type):
-    param_type = param_type.replace("Standard_CString", "char *")
+    param_type = param_type.replace("Standard_CString", "const char *")
     # for SMESH
     param_type = param_type.replace("TDefaults", "SMESH_0D_Algo::TDefaults")
     param_type = param_type.replace("DistrType", "StdMeshers_NumberOfSegments::DistrType")
@@ -560,7 +561,7 @@ def check_dependency(item):
     if not item:
         return False
     filt = ["const ", "static ", "virtual ", "clocale_t", "pointer",
-            "size_type", "void", "reference", "const_"]
+            "size_type", "void", "reference", "const_", "inline "]
     for f in filt:
         item = item.replace(f, '')
     if len(item) == 0:
@@ -592,7 +593,7 @@ def adapt_return_type(return_type):
     for replace in replaces:
         return_type = return_type.replace(replace, "")
     # replace Standard_CString with char *
-    return_type = return_type.replace("Standard_CString", "char *")
+    return_type = return_type.replace("Standard_CString", "const char *")
     # remove const if const virtual double *  # SMESH only
     return_type = return_type.replace("const virtual double *", "virtual double *")
     return_type = return_type.replace("DistrType", "StdMeshers_NumberOfSegments::DistrType")
@@ -641,11 +642,7 @@ def process_docstring(f):
         for param in f["parameters"]:
             param_type = adapt_param_type(param["type"])
             # remove const and &
-            param_type = param_type.replace("const", "")
-            param_type = param_type.replace("Standard_Boolean &", "bool")
-            param_type = param_type.replace("Standard_Boolean", "bool")
-            param_type = param_type.replace("Standard_Real", "float")
-            param_type = param_type.replace("Standard_Integer", "int")
+            param_type = fix_type(param_type)
             if "gp_" in param_type:
                 param_type = param_type.replace("&", "")
             param_type = param_type.strip()
@@ -661,12 +658,9 @@ def process_docstring(f):
     returns_string = '\t:rtype:'
     ret = adapt_return_type(f["rtnType"])
     if ret != 'void':
-        ret = ret.replace("const", "")
         ret = ret.replace("&", "")
         ret = ret.replace("virtual", "")
-        ret = ret.replace("Standard_Boolean", "bool")
-        ret = ret.replace("Standard_Integer", "int")
-        ret = ret.replace("Standard_Real", "float")
+        ret = fix_type(ret)
         ret = ret.replace("static ", "")
         ret = ret.strip()
         returns_string += " %s\n" % ret
@@ -924,7 +918,10 @@ def process_function(f):
     str_function += "("
     for param in f["parameters"]:
         param_type = adapt_param_type(param["type"])
-        param_type_and_name = "%s %s" % (param_type, param["name"])
+        if 'array_size' in param:
+            param_type_and_name = "%s %s[%s]" % (param_type, param["name"], param["array_size"])
+        else:
+            param_type_and_name = "%s %s" % (param_type, param["name"])
         str_function += adapt_param_type_and_name(param_type_and_name)
         if "defaultValue" in param:
             def_value = adapt_default_value_parmlist(param)
@@ -945,6 +942,7 @@ def process_function(f):
             }
         };
         """
+    str_function = str_function.replace('const const', 'const')
     return str_function
 
 
@@ -966,6 +964,28 @@ def process_methods(methods_list):
         if not function["friend"]:
             str_functions += process_function(function)
     return str_functions
+
+
+def must_ignore_default_destructor(klass):
+    """ Some classes, like for instance BRepFeat_MakeCylindricalHole
+    has a protected destructor that must explicitely be ignored
+    This is done by the directive
+    %ignore Class::~Class() just before the wrapper definition
+    """
+    class_protected_methods = klass['methods']['protected']
+    for protected_method in class_protected_methods:
+        #print(public_method)
+        #if klass["name"]=="BOPAlgo_BuilderShape":
+        #  print(protected_method)
+        if protected_method["destructor"]:
+            return True
+    class_private_methods = klass['methods']['private']
+    # finally, return True, the default constructor can be safely defined
+    for private_method in class_private_methods:
+        #print(public_method)
+        if private_method["destructor"]:
+            return True
+    return False
 
 
 def class_can_have_default_constructor(klass):
@@ -1043,7 +1063,7 @@ def build_inheritance_tree(classes_dict):
             # inheritance
             print("\nWARNING : NOT SINGLE INHERITANCE")
             print("CLASS %s has %i ancestors" % (class_name, nbr_upper_classes))
-    # then, after that, we process both dictionnaries, list so
+    # then, after that, we process both dictionaries, list so
     # that we reorder class.
     # first, we build something called the inheritance_depth.
     # that is to say a dict with the class name and the number of upper classes
@@ -1073,9 +1093,18 @@ def build_inheritance_tree(classes_dict):
     return class_list
 
 
+def fix_type(type_str):
+    type_str = type_str.replace("Standard_Boolean &", "bool")
+    type_str = type_str.replace("Standard_Boolean", "bool")
+    type_str = type_str.replace("Standard_Real", "float")
+    type_str = type_str.replace("Standard_Integer", "int")
+    type_str = type_str.replace("const", "")
+    return type_str
+
+
 def process_classes(classes_dict, exclude_classes, exclude_member_functions):
     """ Generate the SWIG string for the class wrapper.
-    Works from a dictionnary of all classes, generated with CppHeaderParser.
+    Works from a dictionary of all classes, generated with CppHeaderParser.
     All classes but the ones in exclude_classes are wrapped.
     excludes_classes is a list with the class names to exclude_classes
     exclude_member_functions is a dict with classes names as keys and member
@@ -1104,6 +1133,10 @@ def process_classes(classes_dict, exclude_classes, exclude_member_functions):
         # then process the class itself
         if not class_can_have_default_constructor(klass):
             class_def_str += "%%nodefaultctor %s;\n" % class_name
+        if must_ignore_default_destructor(klass):
+        # check if the destructor is protected or private
+            class_def_str += "%%ignore %s::~%s();\n" % (class_name, class_name)
+        # then defines the wrapper
         class_def_str += "class %s" % class_name
         # inheritance process
         # in OCE, only single inheritance
@@ -1114,10 +1147,28 @@ def process_classes(classes_dict, exclude_classes, exclude_member_functions):
             inheritance_access = inherits_from[0]["access"]
             class_def_str += " : %s %s" % (inheritance_access, inheritance_name)
         class_def_str += " {\n"
+        # process class typedefs here
+        typedef_str = '\tpublic:\n'
+        for typedef_value in list(klass["typedefs"]['public']):
+            if ')' in typedef_value:
+                continue
+            typedef_str += "typedef %s %s;\n" % (klass._public_typedefs[typedef_value], typedef_value)
+        class_def_str += typedef_str
         # process class enums here
-        class_enums_list = klass["enums"].items()[1][1]
+        class_enums_list = klass["enums"]['public']
         if class_enums_list:
             class_def_str += process_enums(class_enums_list)
+        # process class properties here
+        properties_str = ''
+        for property_value in list(klass["properties"]['public']):
+            if property_value['constant'] or 'virtual' in property_value['raw_type'] or 'Standard_EXPORT' in property_value['raw_type'] or 'allback' in property_value['raw_type']:
+                continue
+            if 'array_size' in property_value:
+                temp = "\t\t%s %s[%s];\n" % (fix_type(property_value['type']), property_value['name'], property_value['array_size'])
+            else:
+                temp = "\t\t%s %s;\n" % (fix_type(property_value['type']), property_value['name'])
+            properties_str += temp
+        class_def_str += properties_str
         # process methods here
         class_public_methods = klass['methods']['public']
         # remove, from this list, all functions that
@@ -1129,13 +1180,12 @@ def process_classes(classes_dict, exclude_classes, exclude_member_functions):
         # if ever the header defines DEFINE STANDARD ALLOC
         # then we wrap a copy constructor. Very convenient
         # to create python classes that inherit from OCE ones!
-        class_def_str += "\tpublic:\n"
         if class_name in ['TopoDS_Shape', 'TopoDS_Vertex']:
             class_def_str += '\t\t%feature("autodoc", "1");\n'
             class_def_str += '\t\t%s(const %s arg0);\n' % (class_name, class_name)
         methods_to_process = filter_member_functions(class_public_methods, members_functions_to_exclude, klass["abstract"])
         class_def_str += process_methods(methods_to_process)
-        # then terminate the classe definition
+        # then terminate the class definition
         class_def_str += "};\n\n"
         #
         # at last, check if there is a related handle
@@ -1143,7 +1193,7 @@ def process_classes(classes_dict, exclude_classes, exclude_member_functions):
         # TODO: check that the following is not restricted
         # to protected destructors !
         class_def_str += '\n'
-        if check_has_related_handle(class_name) or need_handle():
+        if check_has_related_handle(class_name):
             # Extend class by GetHandle method
             class_def_str += '%%extend %s {\n' % class_name
             class_def_str += '\t%' + 'pythoncode {\n'
@@ -1179,6 +1229,14 @@ def process_classes(classes_dict, exclude_classes, exclude_member_functions):
             class_def_str += '\t\tthe_shape.Location(location)\n'
             class_def_str += '\t\tself.this = the_shape.this\n'
             class_def_str += '\t}\n};\n'
+    	# for each class, overload the __repr__ method to avoid things like:
+    	# >>> print(box)
+        #<OCC.TopoDS.TopoDS_Shape; proxy of <Swig Object of type 'TopoDS_Shape *' at 0x02
+        #BCF770> >
+        class_def_str += '%%extend %s {\n' % class_name
+        class_def_str += '\t%' + 'pythoncode {\n'
+        class_def_str += '\t__repr__ = _dumps_object\n'
+        class_def_str += '\t}\n};\n'
     return class_def_str
 
 
@@ -1218,7 +1276,7 @@ def parse_module(module_name):
     module_classes = {}
     module_free_functions = []
     for header in cpp_headers:
-        # builde the typedef dictionnary
+        # build the typedef dictionary
         module_typedefs = dict(module_typedefs.items() + header.typedefs.items())
         # build the enum list
         module_enums += header.enums
@@ -1383,7 +1441,7 @@ def process_toolkit(toolkit_name):
 def process_all_toolkits():
     parallel_build = config.get('build', 'parallel_build')
     if parallel_build == "True":  # multitask
-    	print("parralel")
+    	print("parallel")
         from multiprocessing import Pool
         pool = Pool()
         try:
