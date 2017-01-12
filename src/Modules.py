@@ -28,6 +28,7 @@ TOOLKIT_Foundation = {
             'TKAdvTools': ['Dynamic', 'Materials', 'Expr', 'ExprIntrp',
                            'GraphDS', 'GraphTools']}
 TOOLKIT_Modeling = {
+    """
             'TKG2d': ['Geom2d', 'LProp', 'TColGeom2d', 'Adaptor2d',
                       'Geom2dLProp', 'Geom2dAdaptor', 'GProp'],
             'TKG3d': ['Geom', 'TColGeom', 'GeomAdaptor', 'AdvApprox',
@@ -76,6 +77,9 @@ TOOLKIT_Modeling = {
                          'FilletSurf'],
             'TKFeat': ['LocOpe', 'BRepFeat'],
             'TKOffset': ['BRepOffsetAPI', 'Draft', 'BRepOffset', 'BiTgte'],
+"""
+            
+            'TKVoxel': ['Voxel'],
             }
 
 
@@ -536,6 +540,19 @@ OCE_MODULES = [
            ('Draft', ['BRep', 'Bnd', 'TShort', 'Message',
                       'Poly'], []),
            ('BiTgte', ['TopLoc', 'Message'], []),
+           ### TKVoxel
+           ('Voxel', ['Bnd', 'AppParCurves', 'MAT', 'TColgp',
+                              'BRepAlgo', 'FEmTool', 'TopOpeBRepBuild',
+                              'Plate', 'Bisector', 'TColStd', 'PLib',
+                              'BRepMAT2d', 'TColGeom2d', 'BRepAdaptor',
+                              'BRepClass3d', 'BRep', 'BRepTools',
+                              'Quantity', 'Adaptor3d', 'TopLoc',
+                              'AdvApp2Var', 'TColGeom', 'IntSurf',
+                              'Message', 'Convert', 'Intf', 'TShort',
+                              'TopOpeBRepDS', 'Poly', 'TopOpeBRepTool',
+                              'Extrema', 'Geom2d', 'IntCurveSurface',
+                              'GeomAdaptor', 'Geom2dAdaptor',
+                              'BRepBuilderAPI', 'GeomPlate'], []),
            ###
            ### Visualisation
            ###

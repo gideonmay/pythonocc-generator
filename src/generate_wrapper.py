@@ -39,6 +39,11 @@ all_toolkits = [TOOLKIT_Foundation,
                 TOOLKIT_OCAF,
                 #TOOLKIT_SMesh,
                 TOOLKIT_VTK]
+                
+all_toolkits = [
+    TOOLKIT_Modeling,
+]
+
 TOOLKITS = {}
 for tk in all_toolkits:
     TOOLKITS.update(tk)
